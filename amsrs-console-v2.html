@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AMSRS — Telemetry & Command Console</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Loaded via CDN with fallback to local chart.umd.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root, [data-theme="dark"] {
+--bg-app: #030407;
+--bg-surface: rgba(18, 20, 26, 0.7);
+--bg-surface-hover: rgba(28, 32, 42, 0.85);
+--bg-glass-card: rgba(18, 22, 31, 0.6);
+--bg-subtle: rgba(255, 255, 255, 0.04);
+--border-subtle: rgba(255, 255, 255, 0.09);
+--border-strong: rgba(255, 255, 255, 0.2);
+--border-glow: rgba(0, 112, 243, 0.3);
+--text-primary: #f8fafc;
+--text-secondary: #94a3b8;
+--text-muted: #64748b;
+--brand-blue: #0070f3;
+--brand-blue-glow: rgba(0, 112, 243, 0.25);
+--status-success: #10b981;
+--status-warning: #f59e0b;
+--status-danger: #ef4444;
+--radius-sm: 8px;
+--radius-md: 14px;
+--font-sans: 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+--font-mono: 'Geist Mono', monospace;
+--console-bg: #090d16;
+--console-text: #e2e8f0;
+--console-border: rgba(255, 255, 255, 0.1);
+}
+[data-theme="light"] {
+--bg-app: #f1f5f9;
+--bg-surface: rgba(255, 255, 255, 0.85);
+--bg-surface-hover: rgba(255, 255, 255, 0.98);
+--bg-glass-card: #ffffff;
+--bg-subtle: #f8fafc;
+--border-subtle: #cbd5e1;
+--border-strong: #94a3b8;
+--border-glow: rgba(0, 112, 243, 0.2);
+--text-primary: #0f172a;
+--text-secondary: #334155;
+--text-muted: #64748b;
+--brand-blue: #0070f3;
+--brand-blue-glow: rgba(0, 112, 243, 0.15);
+--status-success: #059669;
+--status-warning: #d97706;
+--status-danger: #dc2626;
+--console-bg: #0f172a;
+--console-text: #f8fafc;
+--console-border: #334155;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+-webkit-appearance: none;
+margin: 0;
+}
+input[type=number] {
+-moz-appearance: textfield;
+appearance: textfield;
+}
+body {
+font-family: var(--font-sans);
+background-color: var(--bg-app);
+background-image:
+radial-gradient(circle at 15% 15%, rgba(0, 112, 243, 0.06) 0%, transparent 40%),
+radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.04) 0%, transparent 40%);
+background-attachment: fixed;
+color: var(--text-primary);
+min-height: 100vh;
+display: flex;
+flex-direction: column;
+overflow-y: auto;
+overflow-x: hidden;
+-webkit-font-smoothing: antialiased;
+transition: background-color 0.25s ease, color 0.25s ease;
+}
+.topbar {
+display: flex; justify-content: space-between; align-items: center;
+padding: 14px 32px;
+background: var(--bg-surface);
+backdrop-filter: blur(16px) saturate(180%);
+-webkit-backdrop-filter: blur(16px) saturate(180%);
+border-bottom: 1px solid var(--border-subtle);
+position: sticky; top: 0; z-index: 100;
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-logo { height: 30px; width: auto; object-fit: contain; }
+.brand-title { display: flex; align-items: center; gap: 8px; }
+.brand-title h1 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.2px; color: var(--text-primary); }
+.brand-tag {
+font-size: 0.72rem; font-family: var(--font-mono); color: var(--text-muted);
+padding: 3px 8px; border-radius: 4px; background: var(--bg-subtle); border: 1px solid var(--border-subtle);
+}
+.status-badge {
+display: flex; align-items: center; gap: 8px;
+font-size: 0.78rem; font-weight: 600; color: var(--text-primary);
+background: var(--bg-subtle); padding: 5px 12px; border-radius: 20px;
+border: 1px solid var(--border-subtle); font-family: var(--font-mono);
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: var(--text-muted); transition: background 0.3s; }
+.status-dot.active {
+background-color: var(--status-success);
+box-shadow: 0 0 12px var(--status-success);
+animation: pulseDot 2s infinite ease-in-out;
+}
+@keyframes pulseDot {
+0%, 100% { transform: scale(1); opacity: 1; }
+50% { transform: scale(1.3); opacity: 0.75; }
+}
+.controls { display: flex; gap: 8px; align-items: center; }
+button {
+background: var(--bg-subtle);
+color: var(--text-primary);
+border: 1px solid var(--border-subtle);
+padding: 7px 14px; border-radius: var(--radius-sm);
+font-size: 0.8rem; font-weight: 600; cursor: pointer;
+transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+display: flex; align-items: center; gap: 6px;
+font-family: var(--font-sans);
+}
+button:hover {
+background: var(--bg-surface-hover);
+border-color: var(--border-strong);
+transform: translateY(-1px);
+}
+button:active {
+transform: translateY(1px) scale(0.98);
+}
+button.primary {
+background: var(--brand-blue);
+color: #ffffff;
+border-color: var(--brand-blue);
+box-shadow: 0 0 16px var(--brand-blue-glow);
+}
+button.primary:hover {
+background: #1a7cf3;
+box-shadow: 0 0 24px rgba(0, 112, 243, 0.4);
+}
+button.danger {
+background: rgba(239, 68, 68, 0.1); color: var(--status-danger); border-color: rgba(239, 68, 68, 0.3);
+}
+button.danger:hover {
+background: rgba(239, 68, 68, 0.2); border-color: var(--status-danger); box-shadow: 0 0 16px rgba(239, 68, 68, 0.2);
+}
+button.rescue-btn {
+background: rgba(239, 68, 68, 0.12); color: var(--status-danger);
+border: 1px solid rgba(239, 68, 68, 0.5); font-weight: 700;
+animation: rescueGlow 2.5s infinite ease-in-out;
+}
+button.rescue-btn:hover { background: rgba(239, 68, 68, 0.25); }
+@keyframes rescueGlow {
+0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+50% { box-shadow: 0 0 14px 4px rgba(239,68,68,0.25); }
+}
+.app-container {
+max-width: 1400px;
+width: 100%;
+margin: 0 auto;
+padding: 24px 32px 48px 32px;
+display: flex;
+flex-direction: column;
+gap: 22px;
+}
+.metric-card, .panel, .rescue-config {
+background: var(--bg-surface);
+backdrop-filter: blur(14px) saturate(160%);
+-webkit-backdrop-filter: blur(14px) saturate(160%);
+border: 1px solid var(--border-subtle);
+box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+border-radius: var(--radius-md);
+transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.metric-card:hover, .panel:hover {
+border-color: var(--border-strong);
+transform: translateY(-2px);
+box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 0 20px rgba(0, 112, 243, 0.08);
+}
+.rescue-config {
+display: flex; align-items: center; justify-content: space-between;
+padding: 12px 20px;
+font-size: 0.78rem; color: var(--text-secondary);
+gap: 14px; font-family: var(--font-mono);
+flex-wrap: wrap;
+}
+.config-group { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.config-item { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.config-item svg { color: var(--text-muted); flex-shrink: 0; }
+.rescue-config input[type=checkbox] { accent-color: var(--brand-blue); width: 15px; height: 15px; cursor: pointer; }
+.rescue-config input[type=number] {
+width: 48px; background: var(--bg-app); border: 1px solid var(--border-subtle);
+color: var(--text-primary); border-radius: 6px;
+padding: 4px 4px; font-size: 0.82rem; font-family: var(--font-mono); font-weight: 600;
+outline: none; transition: all 0.2s ease; text-align: center; margin: 0 2px;
+}
+.rescue-config input[type=number]:focus {
+border-color: var(--brand-blue); box-shadow: 0 0 10px var(--brand-blue-glow);
+}
+.rescue-armed { color: var(--status-danger); font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.rescue-armed .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--status-danger); animation: pulseDot 1.5s infinite; }
+.rescue-disarmed { color: var(--text-muted); font-weight: 500; }
+.guardian-pill {
+display: flex; align-items: center; gap: 6px; white-space: nowrap;
+background: var(--bg-subtle); padding: 4px 10px; border-radius: 20px;
+border: 1px solid var(--border-subtle); font-size: 0.76rem;
+}
+.guardian-pill svg { color: var(--text-muted); }
+.metrics-grid {
+display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
+}
+@media (max-width: 1100px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .metrics-grid { grid-template-columns: 1fr; } }
+.metric-card {
+padding: 18px 20px;
+display: flex; flex-direction: column; gap: 8px;
+}
+.metric-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); font-weight: 700; }
+.metric-value { font-size: 2.2rem; font-weight: 700; font-family: var(--font-mono); letter-spacing: -0.8px; line-height: 1.1; }
+.metric-unit { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; }
+.metric-sub { font-size: 0.76rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 2px; }
+.split-pane {
+display: grid;
+grid-template-columns: 2fr 1fr;
+gap: 18px;
+height: 420px;
+max-height: 420px;
+width: 100%;
+}
+@media (max-width: 1024px) {
+.split-pane { grid-template-columns: 1fr; height: auto; max-height: none; }
+}
+.panel {
+display: flex;
+flex-direction: column;
+overflow: hidden;
+height: 420px;
+max-height: 420px;
+min-width: 0;
+width: 100%;
+}
+.panel-header {
+padding: 14px 18px; border-bottom: 1px solid var(--border-subtle);
+font-size: 0.76rem; font-weight: 700; color: var(--text-secondary);
+display: flex; justify-content: space-between; align-items: center;
+letter-spacing: 0.5px; text-transform: uppercase; font-family: var(--font-mono);
+flex-shrink: 0;
+}
+.chart-wrapper {
+flex: 1;
+padding: 14px 16px;
+position: relative;
+height: 360px;
+max-height: 360px;
+width: 100%;
+min-width: 0;
+overflow: hidden;
+box-sizing: border-box;
+}
+.chart-wrapper canvas { width: 100% !important; height: 100% !important; max-width: 100%; display: block; }
+.terminal-output {
+flex: 1;
+padding: 14px 16px;
+overflow-y: auto;
+background: var(--console-bg);
+border-top: 1px solid var(--console-border);
+font-family: var(--font-mono);
+font-size: 0.78rem;
+line-height: 1.5;
+height: 360px;
+max-height: 360px;
+color: var(--console-text);
+width: 100%;
+min-width: 0;
+}
+.log-row { margin-bottom: 4px; word-break: break-all; }
+.log-time { color: var(--text-muted); margin-right: 8px; }
+.log-info { color: var(--console-text); }
+.log-data { color: var(--status-success); }
+.log-warn { color: var(--status-warning); }
+.log-err { color: var(--status-danger); }
+.log-rescue { color: var(--status-danger); font-weight: 700; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+</style>
+</head>
+<body>
+<header class="topbar">
+<div class="brand">
+<img src="Logo.png" alt="AMSRS Logo" class="brand-logo" onerror="this.style.display='none'">
+<div class="brand-title">
+<h1>AMSRS</h1>
+<span class="brand-tag">v2.0 Console</span>
+</div>
+<div class="status-badge" id="connStatusBadge">
+<div class="status-dot" id="connStatusDot"></div>
+<span id="connStatusText">Offline</span>
+</div>
+</div>
+<div class="controls">
+<button id="btnTheme" title="Toggle Light/Dark Mode"></button>
+<button id="btnExport" title="Export session data to CSV">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+Export CSV
+</button>
+<button id="btnManualRescue" class="rescue-btn" title="Manually trigger rescue in Shoreline Guardian">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+Trigger Rescue
+</button>
+<button id="btnConnect" class="primary">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+Connect Port
+</button>
+<button id="btnDisconnect" class="danger" style="display:none;">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>
+Disconnect
+</button>
+</div>
+</header>
+<div class="app-container">
+<div class="rescue-config">
+<div class="config-group">
+<label class="config-item">
+<input type="checkbox" id="chkAutoRescue" checked>
+<span id="autoRescueState" class="rescue-armed"><span class="dot"></span>Auto-Rescue Armed</span>
+</label>
+<div class="config-item">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+<span>Trigger: <strong>Status Danger</strong></span>
+</div>
+<label class="config-item">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0z"></path></svg>
+<span>IR Limit &gt;</span>
+<input type="number" id="inpTempThresh" value="37" min="20" max="100" step="0.5">
+<span>°C</span>
+</label>
+<label class="config-item">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.6 2 5.1 2 2.5 0 2.5-2 5.1-2 1.3 0 1.9.5 2.5 1"></path><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.6 2 5.1 2 2.5 0 2.5-2 5.1-2 1.3 0 1.9.5 2.5 1"></path><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.6 2 5.1 2 2.5 0 2.5-2 5.1-2 1.3 0 1.9.5 2.5 1"></path></svg>
+<span>Spike &gt;</span>
+<input type="number" id="inpDepthThresh" value="10" min="1" max="200" step="1">
+<span>cm</span>
+</label>
+<label class="config-item">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+<span>Cooldown:</span>
+<input type="number" id="inpCooldown" value="30" min="5" max="300" step="5">
+<span>s</span>
+</label>
+</div>
+<div id="rescueWindowLabel" class="guardian-pill">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+<span>Guardian:</span> <span id="guardianStatus" style="color:var(--status-warning)">disconnected</span>
+</div>
+</div>
+<section class="metrics-grid">
+<div class="metric-card">
+<div class="metric-label">Water Displacement</div>
+<div class="metric-value" id="valDepth">-- <span class="metric-unit">cm</span></div>
+<div class="metric-sub" id="valInitial">Baseline: -- cm</div>
+</div>
+<div class="metric-card">
+<div class="metric-label">Ambient Temp</div>
+<div class="metric-value" id="valAmbient">-- <span class="metric-unit">°C</span></div>
+<div class="metric-sub">Enclosure internal</div>
+</div>
+<div class="metric-card">
+<div class="metric-label">Target IR Temp</div>
+<div class="metric-value" id="valObject">-- <span class="metric-unit">°C</span></div>
+<div class="metric-sub">Surface thermal signature</div>
+</div>
+<div class="metric-card" id="cardStatus">
+<div class="metric-label">Operational State</div>
+<div class="metric-value" id="valStatus" style="font-size:1.6rem;color:var(--text-muted);">Awaiting Data</div>
+<div class="metric-sub">Active alerts &amp; modes</div>
+</div>
+</section>
+<section class="split-pane">
+<div class="panel">
+<div class="panel-header"><span>Live Telemetry Graph</span></div>
+<div class="chart-wrapper"><canvas id="mainChart"></canvas></div>
+</div>
+<div class="panel">
+<div class="panel-header">
+<span>Serial Console (115200)</span>
+<button id="btnClearLogs" style="padding:3px 10px;font-size:0.72rem;">Clear</button>
+</div>
+<div class="terminal-output" id="terminal"></div>
+</div>
+</section>
+</div>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// RESCUE DISPATCH BRIDGE
+// ─────────────────────────────────────────────────────────────────────────────
+class RescueBridge {
+constructor(ui) {
+this.ui = ui;
+this.guardianWindow = null;
+this.lastTriggerTime = 0;
+this.linkedOk = false;
+this.ws = null;
+this._initWebSocket();
+
+if ('BroadcastChannel' in window) {
+this.channel = new BroadcastChannel('amsrs_rescue_channel');
+this.channel.onmessage = (e) => {
+if (e.data && e.data.type === 'GUARDIAN_READY') {
+this._markLinked();
+this.ui.log('Shoreline Guardian linked via BroadcastChannel.', 'data');
+}
+};
+}
+if (window.opener && typeof window.opener.triggerRescueExternal === 'function') {
+this.guardianWindow = window.opener;
+this._markLinked();
+}
+window.addEventListener('message', (e) => {
+if (e.data && e.data.type === 'GUARDIAN_READY') {
+this.guardianWindow = e.source || this.guardianWindow;
+this._markLinked();
+this.ui.log('Shoreline Guardian linked via postMessage handshake.', 'data');
+}
+});
+this._pingGuardian();
+setInterval(() => {
+if (!this.linkedOk) this._pingGuardian();
+}, 3000);
+}
+_initWebSocket() {
+const wsUrl = (location.protocol === 'http:' || location.protocol === 'https:')
+  ? `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`
+  : 'ws://localhost:8080';
+
+try {
+  this.ws = new WebSocket(wsUrl);
+  this.ws.onopen = () => {
+    this.ui.log('Mobile Network WebSocket Relay connected.', 'data');
+  };
+  this.ws.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'AMSRS_RESCUE') {
+        if (data.payload && data.payload.source !== 'AMSRS SENSOR ARRAY') {
+          this.ui.log(`Remote dispatch signal from: ${data.payload.source}`, 'rescue');
+          this.fire(data.payload);
+        }
+      } else if (data.type === 'GUARD_ACK') {
+        this.ui.log(`Mobile Guard ACK: Guard ${data.payload?.guardId || 'Unit'} is EN ROUTE.`, 'data');
+      } else if (data.type === 'GUARD_STANDDOWN') {
+        this.ui.log('Mobile Guard issued Stand Down / False Alarm.', 'warn');
+      }
+    } catch (_) {}
+  };
+  this.ws.onclose = () => {
+    setTimeout(() => this._initWebSocket(), 3000);
+  };
+} catch (err) {
+  setTimeout(() => this._initWebSocket(), 3000);
+}
+}
+_pingGuardian() {
+try {
+if (this.channel) this.channel.postMessage({ type: 'AMSRS_PING' });
+if (window.opener) window.opener.postMessage({ type: 'AMSRS_PING' }, '*');
+if (this.guardianWindow && !this.guardianWindow.closed) {
+this.guardianWindow.postMessage({ type: 'AMSRS_PING' }, '*');
+}
+for (let i = 0; i < window.frames.length; i++) {
+try { window.frames[i].postMessage({ type: 'AMSRS_PING' }, '*'); } catch(_) {}
+}
+} catch(_) {}
+}
+_markLinked() {
+this.linkedOk = true;
+const el = document.getElementById('guardianStatus');
+if (el) {
+el.textContent = 'linked';
+el.style.color = 'var(--status-success)';
+}
+}
+openGuardian() {
+const devServerUrl = 'http://localhost:5173';
+const fallbackPath = 'demo-live/project/index.html';
+try {
+this.guardianWindow = window.open(devServerUrl, 'ShorelineGuardian',
+'width=1400,height=900,menubar=no,toolbar=no');
+} catch (e) {
+this.guardianWindow = window.open(fallbackPath, 'ShorelineGuardian',
+'width=1400,height=900,menubar=no,toolbar=no');
+}
+setTimeout(() => {
+if (this.guardianWindow && !this.guardianWindow.closed) {
+this.ui.log('Shoreline Guardian interface initiated.', 'data');
+this._pingGuardian();
+} else {
+this.ui.log('Awaiting Guardian interface handshake...', 'warn');
+}
+}, 2000);
+}
+openGuardApp() {
+try {
+window.open('Guard-PWA/index.html', 'AMSRSGuard',
+'width=480,height=860,menubar=no,toolbar=no');
+this.ui.log('AMSRS Guard Field PWA interface opened.', 'data');
+} catch (e) {
+console.warn('Could not open Guard PWA:', e);
+}
+}
+fire(payload) {
+const now = Date.now() / 1000;
+const cooldown = parseInt(document.getElementById('inpCooldown').value) || 30;
+if (now - this.lastTriggerTime < cooldown) {
+const remaining = Math.ceil(cooldown - (now - this.lastTriggerTime));
+this.ui.log(`Auto-dispatch cooldown active: ${remaining}s remaining.`, 'warn');
+return false;
+}
+this.lastTriggerTime = now;
+payload.source = payload.source || 'AMSRS SENSOR ARRAY';
+let sent = false;
+if (this.channel) {
+try {
+this.channel.postMessage({ type: 'AMSRS_RESCUE', payload });
+sent = true;
+} catch (_) {}
+}
+if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+try {
+this.ws.send(JSON.stringify({ type: 'AMSRS_RESCUE', payload }));
+sent = true;
+} catch (_) {}
+}
+if (this.guardianWindow && !this.guardianWindow.closed) {
+try {
+if (typeof this.guardianWindow.triggerRescueExternal === 'function') {
+this.guardianWindow.triggerRescueExternal(payload);
+sent = true;
+}
+} catch(e) {}
+}
+const targets = [this.guardianWindow, window.opener].filter(Boolean);
+targets.forEach(w => {
+try {
+if (!w.closed) {
+w.postMessage({ type: 'AMSRS_RESCUE', payload }, '*');
+sent = true;
+}
+} catch(_) {}
+});
+if (!sent) {
+try {
+window.postMessage({ type: 'AMSRS_RESCUE', payload }, '*');
+} catch(_) {}
+}
+return true;
+}
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD MANAGER
+// ─────────────────────────────────────────────────────────────────────────────
+class DashboardManager {
+constructor() {
+this.recordedData = [];
+this.maxChartPoints = 35;
+this.baselineDepth = null;
+this.chart = null;
+
+// Defensive check so a missing Chart library does not break Serial functions
+if (typeof Chart !== 'undefined') {
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  let depthGradient = ctx.createLinearGradient(0, 0, 0, 320);
+  depthGradient.addColorStop(0, 'rgba(0, 112, 243, 0.35)');
+  depthGradient.addColorStop(1, 'rgba(0, 112, 243, 0.0)');
+  this.chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Displacement (cm)',
+          borderColor: '#0070f3',
+          backgroundColor: depthGradient,
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#0070f3',
+          tension: 0.35,
+          fill: true,
+          data: [],
+          yAxisID: 'y'
+        },
+        {
+          label: 'Ambient Temp (°C)',
+          borderColor: '#64748b',
+          borderDash: [4,4],
+          borderWidth: 1.8,
+          pointRadius: 2,
+          tension: 0.35,
+          data: [],
+          yAxisID: 'y1'
+        },
+        {
+          label: 'Target Temp (°C)',
+          borderColor: '#f59e0b',
+          borderWidth: 2.5,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#f59e0b',
+          tension: 0.35,
+          data: [],
+          yAxisID: 'y1'
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: '#64748b', font: { family: 'Geist', size: 12 } } } },
+      scales: {
+        x: {
+          grid: { color: 'rgba(128, 128, 128, 0.12)' },
+          ticks: { color: '#64748b', maxTicksLimit: 12, font: { family: 'Geist Mono' } }
+        },
+        y: {
+          type: 'linear', position: 'left',
+          grid: { color: 'rgba(128, 128, 128, 0.12)' },
+          ticks: { color: '#64748b', font: { family: 'Geist Mono' } },
+          grace: '10%',
+          title: { display: true, text: 'Centimeters', color: '#64748b', font: { size: 11 } }
+        },
+        y1: {
+          type: 'linear', position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: '#64748b', font: { family: 'Geist Mono' } },
+          grace: '10%',
+          title: { display: true, text: 'Celsius', color: '#64748b', font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+this.terminal = document.getElementById('terminal');
+document.getElementById('btnClearLogs').addEventListener('click', () => this.terminal.innerHTML = '');
+document.getElementById('btnExport').addEventListener('click', () => this.exportCSV());
+document.getElementById('chkAutoRescue').addEventListener('change', (e) => {
+const armed = e.target.checked;
+const el = document.getElementById('autoRescueState');
+el.innerHTML = armed
+? '<span class="dot"></span>Auto-Rescue Armed'
+: 'Auto-Rescue Disarmed';
+el.className = armed ? 'rescue-armed' : 'rescue-disarmed';
+});
+this.initTheme();
+}
+initTheme() {
+this.themeBtn = document.getElementById('btnTheme');
+this.currentTheme = localStorage.getItem('theme') || 'dark';
+document.documentElement.setAttribute('data-theme', this.currentTheme);
+this.applyThemeToChart();
+this.themeBtn.addEventListener('click', () => {
+this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
+document.documentElement.setAttribute('data-theme', this.currentTheme);
+localStorage.setItem('theme', this.currentTheme);
+this.applyThemeToChart();
+});
+}
+applyThemeToChart() {
+const sunIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
+const moonIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
+this.themeBtn.innerHTML = this.currentTheme === 'dark' ? `${sunIcon} Light` : `${moonIcon} Dark`;
+if (!this.chart) return;
+const gridColor = this.currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)';
+const textColor = this.currentTheme === 'dark' ? '#94a3b8' : '#475569';
+this.chart.options.scales.x.grid.color = gridColor;
+this.chart.options.scales.x.ticks.color = textColor;
+this.chart.options.scales.y.grid.color = gridColor;
+this.chart.options.scales.y.ticks.color = textColor;
+this.chart.options.scales.y.title.color = textColor;
+this.chart.options.scales.y1.ticks.color = textColor;
+this.chart.options.scales.y1.title.color = textColor;
+this.chart.options.plugins.legend.labels.color = textColor;
+this.chart.update('none');
+}
+updateMetrics(data) {
+data.timestamp = new Date().toISOString();
+this.recordedData.push(data);
+if (data.depth !== undefined && data.depth !== null) document.getElementById('valDepth').innerHTML = `${data.depth} <span class="metric-unit">cm</span>`;
+if (data.initial !== undefined && data.initial !== null) document.getElementById('valInitial').innerText = `Baseline: ${data.initial} cm`;
+if (data.ambient !== undefined && data.ambient !== null) {
+document.getElementById('valAmbient').innerHTML = `${data.ambient} <span class="metric-unit">°C</span>`;
+} else if (data.ambient === null) {
+document.getElementById('valAmbient').innerHTML = `N/A <span class="metric-unit">°C</span>`;
+}
+if (data.object !== undefined && data.object !== null) {
+document.getElementById('valObject').innerHTML = `${data.object} <span class="metric-unit">°C</span>`;
+} else if (data.object === null) {
+document.getElementById('valObject').innerHTML = `N/A <span class="metric-unit">°C</span>`;
+}
+if (data.depth !== undefined && this.baselineDepth === null) {
+this.baselineDepth = parseFloat(data.depth);
+this.log(`Depth baseline set: ${this.baselineDepth} cm`, 'data');
+}
+if (data.status) {
+const statusEl = document.getElementById('valStatus');
+const lower = data.status.toLowerCase();
+if (lower.includes('red') || lower.includes('danger') || lower.includes('high')) {
+statusEl.style.color = 'var(--status-danger)';
+} else if (lower.includes('orange') || lower.includes('yellow') || lower.includes('warn') || lower.includes('potential')) {
+statusEl.style.color = 'var(--status-warning)';
+} else {
+statusEl.style.color = 'var(--status-success)';
+}
+statusEl.innerText = data.status.replace(/\s*\([^)]*LED[^)]*\)/gi, '').trim();
+}
+if (this.chart) {
+  const timeLabel = new Date().toLocaleTimeString([], { hour12: false });
+  this.chart.data.labels.push(timeLabel);
+  this.chart.data.datasets[0].data.push(data.depth || null);
+  this.chart.data.datasets[1].data.push(data.ambient || null);
+  this.chart.data.datasets[2].data.push(data.object || null);
+  if (this.chart.data.labels.length > this.maxChartPoints) {
+    this.chart.data.labels.shift();
+    this.chart.data.datasets.forEach(ds => ds.data.shift());
+  }
+  this.chart.update('none');
+}
+if (window._rescueBridge) {
+  if (window._rescueBridge.channel) {
+    try { window._rescueBridge.channel.postMessage({ type: 'AMSRS_TELEMETRY', payload: data }); } catch (_) {}
+  }
+  if (window._rescueBridge.ws && window._rescueBridge.ws.readyState === WebSocket.OPEN) {
+    try { window._rescueBridge.ws.send(JSON.stringify({ type: 'AMSRS_TELEMETRY', payload: data })); } catch (_) {}
+  }
+}
+this._evalRescue(data);
+}
+_evalRescue(data) {
+if (!document.getElementById('chkAutoRescue').checked) return;
+const tempThresh = parseFloat(document.getElementById('inpTempThresh').value) || 37;
+const depthThresh = parseFloat(document.getElementById('inpDepthThresh').value) || 10;
+let reason = null;
+if (data.status) {
+const lower = data.status.toLowerCase();
+if (lower.includes('red') || lower.includes('high') || lower.includes('danger')) {
+reason = `Status: "${data.status}"`;
+}
+}
+if (!reason && data.object !== undefined) {
+if (parseFloat(data.object) > tempThresh) {
+reason = `IR Temp ${data.object}°C > Threshold ${tempThresh}°C`;
+}
+}
+if (!reason && data.depth !== undefined && this.baselineDepth !== null) {
+const spike = parseFloat(data.depth) - this.baselineDepth;
+if (spike > depthThresh) {
+reason = `Displacement Spike +${spike.toFixed(1)}cm > Threshold ${depthThresh}cm`;
+}
+}
+if (reason) {
+this.log(`Danger Condition: ${reason}`, 'rescue');
+const fired = window._rescueBridge && window._rescueBridge.fire({
+depth: data.depth,
+ambient: data.ambient,
+object: data.object,
+status: data.status || ''
+});
+if (fired) {
+this.log('Auto-Rescue Signal Sent -> Shoreline Guardian', 'rescue');
+}
+}
+}
+log(message, level = 'info') {
+const time = new Date().toLocaleTimeString([], { hour12: false });
+const div = document.createElement('div');
+div.className = 'log-row';
+div.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${level}">${message}</span>`;
+this.terminal.appendChild(div);
+this.terminal.scrollTop = this.terminal.scrollHeight;
+if (this.terminal.childElementCount > 200) this.terminal.removeChild(this.terminal.firstChild);
+}
+setConnectionState(isConnected) {
+document.getElementById('connStatusText').innerText = isConnected ? 'Connected' : 'Offline';
+document.getElementById('connStatusDot').className = isConnected ? 'status-dot active' : 'status-dot';
+document.getElementById('btnConnect').style.display = isConnected ? 'none' : 'flex';
+document.getElementById('btnDisconnect').style.display = isConnected ? 'flex' : 'none';
+}
+exportCSV() {
+if (this.recordedData.length === 0) return alert('No telemetry recorded in current session.');
+const headers = ['timestamp','depth','initial','ambient','object','status'];
+const rows = [headers.join(',')];
+for (const row of this.recordedData) {
+rows.push(headers.map(h => `"${row[h] !== undefined ? row[h] : ''}"`).join(','));
+}
+const a = document.createElement('a');
+a.href = URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' }));
+a.download = `amsrs_telemetry_${Date.now()}.csv`;
+a.click();
+}
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// SERIAL COMMUNICATIONS MANAGER
+// ─────────────────────────────────────────────────────────────────────────────
+class SerialManager {
+constructor(uiManager) {
+this.ui = uiManager;
+this.port = null;
+this.reader = null;
+this.keepReading = false;
+document.getElementById('btnConnect').addEventListener('click', () => this.connect());
+document.getElementById('btnDisconnect').addEventListener('click', () => this.disconnect());
+}
+
+async connect() {
+// 1. Check Web Serial API support
+if (!('serial' in navigator)) {
+  const errNotice = 'Web Serial API is NOT supported in this browser. Please open this page in Google Chrome, Microsoft Edge, or Opera on desktop.';
+  alert(errNotice);
+  this.ui.log(errNotice, 'err');
+  return;
+}
+
+// 2. Check Secure Context
+if (!window.isSecureContext) {
+  const secureNotice = 'Web Serial requires a Secure Context (HTTPS or http://localhost). It cannot run over insecure HTTP or raw LAN IP addresses.';
+  alert(secureNotice);
+  this.ui.log(secureNotice, 'err');
+  return;
+}
+
+try {
+  // Opens browser native serial port chooser dialog
+  this.port = await navigator.serial.requestPort();
+  await this.port.open({ baudRate: 115200 });
+  this.ui.setConnectionState(true);
+  this.ui.log('Serial port opened at 115200 baud.', 'data');
+  this.keepReading = true;
+  this.readLoop();
+} catch (err) {
+  if (err.name === 'NotFoundError') {
+    this.ui.log('Port selection cancelled by user.', 'warn');
+  } else if (err.name === 'NetworkError' || err.message.includes('Failed to open')) {
+    this.ui.log('Failed to open port. Check if Arduino IDE Serial Monitor or another app is already using this COM port.', 'err');
+  } else {
+    this.ui.log(`Connection error: ${err.message}`, 'err');
+  }
+}
+}
+
+async disconnect() {
+this.keepReading = false;
+try {
+  if (this.reader) {
+    await this.reader.cancel();
+  }
+} catch (e) {
+  console.warn('Reader cancel:', e);
+}
+try {
+  if (this.port) {
+    await this.port.close();
+    this.port = null;
+  }
+} catch (e) {
+  console.warn('Port close:', e);
+}
+this.ui.setConnectionState(false);
+this.ui.log('Disconnected from serial port.', 'warn');
+}
+
+async readLoop() {
+let buffer = '';
+const textDecoder = new TextDecoder();
+
+while (this.port && this.port.readable && this.keepReading) {
+  try {
+    this.reader = this.port.readable.getReader();
+    while (this.keepReading) {
+      const { value, done } = await this.reader.read();
+      if (done) break;
+      buffer += textDecoder.decode(value, { stream: true });
+      let lines = buffer.split('\n');
+      buffer = lines.pop(); // Retain remainder
+      for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+        if (line.startsWith('{') && line.endsWith('}')) {
+          const sanitizedLine = line
+            .replace(/:\s*-?nan\b/gi, ':null')
+            .replace(/:\s*-?infinity\b/gi, ':null');
+          try {
+            const payload = JSON.parse(sanitizedLine);
+            this.ui.log(line, 'data');
+            this.ui.updateMetrics(payload);
+          } catch (e) {
+            this.ui.log(`JSON parse error: ${line}`, 'err');
+          }
+        } else {
+          this.ui.log(line, 'info');
+        }
+      }
+    }
+  } catch (error) {
+    if (this.keepReading) {
+      this.ui.log(`Read error: ${error.message}`, 'err');
+    }
+  } finally {
+    if (this.reader) {
+      this.reader.releaseLock();
+      this.reader = null;
+    }
+  }
+}
+}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INITIALIZATION
+// ─────────────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const appUI = new DashboardManager();
+  const appSerial = new SerialManager(appUI);
+  window._rescueBridge = new RescueBridge(appUI);
+
+  document.getElementById('btnManualRescue').addEventListener('click', () => {
+    const lastData = appUI.recordedData[appUI.recordedData.length - 1] || {};
+    const fired = window._rescueBridge.fire({
+      depth: lastData.depth,
+      ambient: lastData.ambient,
+      object: lastData.object,
+      status: lastData.status || 'MANUAL TRIGGER'
+    });
+    if (!fired) return;
+    appUI.log('Manual rescue dispatch initiated by operator.', 'rescue');
+  });
+
+  const openGuardBtn = document.createElement('button');
+  openGuardBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Open Guard App`;
+  openGuardBtn.title = 'Open AMSRS Guard PWA Mobile Interface in a new window';
+  openGuardBtn.addEventListener('click', () => window._rescueBridge.openGuardApp());
+  document.querySelector('.controls').insertBefore(openGuardBtn, document.getElementById('btnConnect'));
+
+  // Mobile QR Code & LAN Link Modal
+  const qrBtn = document.createElement('button');
+  qrBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg> Phone QR`;
+  qrBtn.title = 'Show QR Code & LAN Link to open Guard App on phones';
+  qrBtn.style.background = 'rgba(2, 132, 199, 0.15)';
+  qrBtn.style.color = 'var(--brand-blue)';
+  qrBtn.style.border = '1px solid rgba(2, 132, 199, 0.4)';
+
+  qrBtn.addEventListener('click', async () => {
+    let lanUrl = location.origin.replace('localhost', location.hostname).replace('127.0.0.1', location.hostname);
+    try {
+      const res = await fetch('/api/network');
+      const data = await res.json();
+      if (data.ips && data.ips.length > 0) {
+        lanUrl = data.ips[0].url;
+      }
+    } catch (_) {}
+
+    const qrImgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(lanUrl)}`;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; z-index:9999;';
+    overlay.innerHTML = `
+      <div style="background:var(--bg-card); border:1px solid var(--border-strong); border-radius:18px; padding:24px; max-width:340px; width:90%; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,0.4); color:var(--text-primary); font-family:inherit;">
+        <div style="font-size:1.1rem; font-weight:800; margin-bottom:6px; color:var(--brand-blue); display:flex; align-items:center; justify-content:center; gap:8px;">
+          Open Guard App on Phone
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-secondary); margin-bottom:14px;">
+          Scan with your phone camera or connect any device on the same Wi-Fi / Hotspot:
+        </p>
+        <div style="background:#ffffff; padding:12px; border-radius:12px; display:inline-block; margin-bottom:14px; box-shadow:0 4px 15px rgba(0,0,0,0.1);">
+          <img src="${qrImgSrc}" alt="QR Code" width="180" height="180" style="display:block; border-radius:6px;" onerror="this.parentElement.innerHTML='<p style=\\'color:#000; font-size:0.8rem; padding:20px;\\'>Open on phone browser:<br><b>${lanUrl}</b></p>'">
+        </div>
+        <div style="background:rgba(255,255,255,0.06); border:1px solid var(--border-subtle); padding:8px 12px; border-radius:10px; font-family:var(--font-mono); font-size:0.82rem; margin-bottom:16px; word-break:break-all;">
+          ${lanUrl}
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button id="btnCopyLan" style="flex:1; background:var(--brand-blue); color:#fff; border:none; padding:10px; border-radius:10px; font-weight:700; cursor:pointer;">Copy Link</button>
+          <button id="btnCloseQr" style="flex:0.8; background:rgba(255,255,255,0.08); border:1px solid var(--border-subtle); color:var(--text-primary); padding:10px; border-radius:10px; font-weight:600; cursor:pointer;">Close</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    overlay.querySelector('#btnCloseQr').onclick = () => overlay.remove();
+    overlay.querySelector('#btnCopyLan').onclick = () => {
+      navigator.clipboard.writeText(lanUrl);
+      overlay.querySelector('#btnCopyLan').textContent = 'Copied!';
+      setTimeout(() => { if (overlay.querySelector('#btnCopyLan')) overlay.querySelector('#btnCopyLan').textContent = 'Copy Link'; }, 2000);
+    };
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  });
+
+  document.querySelector('.controls').insertBefore(qrBtn, document.getElementById('btnConnect'));
+
+  const simBtn = document.createElement('button');
+  simBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M2 18h20M2 6h20"/></svg> Sim Stream`;
+  simBtn.title = 'Start/Stop Simulated Live Sensor Stream for testing mobile sync';
+  let simInterval = null;
+  simBtn.addEventListener('click', () => {
+    if (simInterval) {
+      clearInterval(simInterval);
+      simInterval = null;
+      simBtn.style.color = '';
+      appUI.log('Simulated Sensor Stream STOPPED.', 'warn');
+    } else {
+      simBtn.style.color = 'var(--brand-blue)';
+      appUI.log('Simulated Sensor Stream STARTED (Broadcasting to Mobile PWA).', 'data');
+      let t = 0;
+      simInterval = setInterval(() => {
+        t += 0.2;
+        const waveDisplacement = 12.0 + Math.sin(t) * 4.5 + (Math.random() * 1.5 - 0.75);
+        const ambTemp = 26.5 + Math.sin(t * 0.1) * 0.8;
+        const objTemp = 33.2 + Math.cos(t * 0.2) * 1.5;
+        const mockData = {
+          depth: parseFloat(waveDisplacement.toFixed(1)),
+          initial: 12.0,
+          ambient: parseFloat(ambTemp.toFixed(1)),
+          object: parseFloat(objTemp.toFixed(1)),
+          status: 'NORMAL'
+        };
+        appUI.updateMetrics(mockData);
+      }, 1000);
+    }
+  });
+  document.querySelector('.controls').insertBefore(simBtn, openBtn);
+
+  appUI.log('AMSRS Glass Console initialized. Auto-dispatch is armed.', 'info');
+  appUI.log('Open Shoreline Guardian & Guard App to enable autonomous rescue network.', 'info');
+  setTimeout(() => window.postMessage({ type: 'AMSRS_PING' }, '*'), 1000);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "amsrs-coastal-system",
+  "version": "2.0.0",
+  "description": "AMSRS Coastal Rescue Telemetry Console, Real-time Relay Server, and Guard Mobile PWA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "sim": "cd \"Simulation - Copy/project\" && npm run dev"
+  },
+  "keywords": ["amsrs", "rescue", "coastal", "pwa", "telemetry"],
+  "author": "AMSRS Team",
+  "license": "ISC"
+}
